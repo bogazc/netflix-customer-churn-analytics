@@ -28,3 +28,13 @@ The exploratory analysis of the 5,000-customer dataset is in [`notebooks/01_eda.
 **Data quality notes**
 - `avg_watch_time_per_day` is derived from `watch_hours` and `last_login_days`, so it will be excluded or tested separately to avoid leakage.
 - The 50/50 class balance and near-deterministic patterns suggest the dataset is synthetic.
+
+## 3. Data Preprocessing
+
+The data preparation and feature engineering pipeline is implemented in [`notebooks/02_preprocessing.ipynb`](notebooks/02_preprocessing.ipynb). All transformations are structured to prevent data leakage and produce clean, numeric feature matrices for modeling.
+
+**Key preprocessing steps**
+- **Feature selection.** Dropped `customer_id`, redundant columns (`subscription_type`, `avg_watch_time_per_day`), and non-predictive demographics and preferences (`age`, `gender`, `region`, `device`, `favorite_genre`).
+- **Feature engineering.** Created four domain-driven features based on EDA findings: `log_watch_hours` (`log1p` transform of right-skewed viewing hours), `inactive_30d` (`last_login_days > 30`), `profiles_4plus` (`number_of_profiles >= 4`), and `risky_payment` (`Crypto` or `Gift Card`).
+- **Leak-free split & transformation.** Applied a stratified 80/20 train-test split (`4,000` train / `1,000` test rows) **before** fitting a `ColumnTransformer` on `X_train` (`RobustScaler` for continuous features, `OneHotEncoder(drop="first")` for `payment_method`, and `passthrough` for binary flags).
+- **Processed outputs.** Exported ready-to-model datasets (`4,000 x 12` and `1,000 x 12`) to `data/processed/`.
