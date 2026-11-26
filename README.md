@@ -38,3 +38,28 @@ The data preparation and feature engineering pipeline is implemented in [`notebo
 - **Feature engineering.** Created four domain-driven features based on EDA findings: `log_watch_hours` (`log1p` transform of right-skewed viewing hours), `inactive_30d` (`last_login_days > 30`), `profiles_4plus` (`number_of_profiles >= 4`), and `risky_payment` (`Crypto` or `Gift Card`).
 - **Leak-free split & transformation.** Applied a stratified 80/20 train-test split (`4,000` train / `1,000` test rows) **before** fitting a `ColumnTransformer` on `X_train` (`RobustScaler` for continuous features, `OneHotEncoder(drop="first")` for `payment_method`, and `passthrough` for binary flags).
 - **Processed outputs.** Exported ready-to-model datasets (`4,000 x 12` and `1,000 x 12`) to `data/processed/`.
+
+## 4. Modeling
+
+Three baseline classification models are trained and compared in [`notebooks/03_modeling.ipynb`](notebooks/03_modeling.ipynb). All models use the 12 processed features from `data/processed/` (`random_state=42`) and are evaluated on the 1,000-customer hold-out test set.
+
+**Models**
+- **Logistic Regression** (`max_iter=1000`). An interpretable linear baseline.
+- **Decision Tree, depth 3** (`min_samples_leaf=20`). A simple model with easy-to-read rules.
+- **Decision Tree, depth 5** (`min_samples_leaf=20`). A deeper tree that can capture interactions between engagement and inactivity.
+
+**Results:**
+
+| Model | Accuracy | ROC-AUC | Precision | Recall | F1 | Missed churners (FN) | Needless offers (FP) |
+|---|---|---|---|---|---|---|---|
+| Decision Tree (depth 5) | 0.934 | 0.986 | 0.960 | 0.907 | 0.933 | 47 | 19 |
+| Logistic Regression | 0.920 | 0.978 | 0.921 | 0.921 | 0.921 | 40 | 40 |
+| Decision Tree (depth 3) | 0.908 | 0.940 | 0.870 | 0.960 | 0.913 | 20 | 72 |
+
+**Main findings**
+- **The depth-5 tree is the best overall model** on accuracy, ROC-AUC, F1 and precision, with the fewest false alarms (19), but it misses more churners (47) than the other two.
+- **Logistic regression is balanced** (precision and recall both 0.92, 40 errors of each type) and remains the most interpretable model.
+- **The depth-3 tree has the highest recall** (0.96, only 20 missed churners), but at the cost of 72 false alarms and the weakest ROC-AUC (0.940). Which model is "best" depends on the relative cost of a missed churner and a needless offer, which will be settled by the Expected Value analysis.
+- **The drivers agree with the EDA.** Viewing time (`log_watch_hours`, `watch_hours`) and inactivity (`inactive_30d`, `last_login_days`) are the most important features in all three models. In the logistic regression, inactivity and risky payment methods raise churn risk, while more viewing, higher-priced plans (`monthly_fee`) and 4+ profiles lower it. 
+
+**Saved models** (`models/`): `logistic_regression.joblib`, `decision_tree_3_depth.joblib`, `decision_tree_5_depth.joblib`.
